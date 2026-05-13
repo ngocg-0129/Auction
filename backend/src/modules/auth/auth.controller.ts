@@ -21,9 +21,11 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const me = asyncHandler(async (req: Request, res: Response) => {
-  const user = req.user;
+  if (!req.user) {
+    throw new Error("Unauthorized");
+  }
 
-  const result = await authService.getMe(user.userId);
+  const result = await authService.getMe(req.user.userId);
 
   res.json({
     message: "Get current user successfully",

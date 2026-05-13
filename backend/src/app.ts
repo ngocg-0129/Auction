@@ -3,6 +3,8 @@ import cors from "cors";
 import { errorMiddleware } from "./middlewares/error.middleware";
 import { notFoundMiddleware } from "./middlewares/not-found.middleware";
 import authRoutes from "./modules/auth/auth.routes";
+import auctionRoutes from "./modules/auctions/auction.routes";
+import bidRoutes from "./modules/bids/bid.routes";
 
 const app = express();
 
@@ -17,6 +19,8 @@ app.get("/health", (req, res) => { // API Test server còn sống không
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/auctions", auctionRoutes);
+app.use("/api", bidRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
