@@ -1,4 +1,22 @@
 services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: auction_backend
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://auction_user:auction_password@postgres:5432/auction_db
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - auction_net
+    restart: unless-stopped
+
   postgres:
     image: postgres:16
     container_name: auction_postgres
@@ -10,12 +28,49 @@ services:
       - "5434:5432"
     volumes:
       - auction_postgres_data:/var/lib/postgresql/data
+    networks:
+      - auction_net
 
   redis:
     image: redis:7
     container_name: auction_redis
     ports:
       - "6379:6379"
+    networks:
+      - auction_net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: auction_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - auction_net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: auction_grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+    volumes:
+      - auction_grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - auction_net
+    restart: unless-stopped
 
 volumes:
   auction_postgres_data:
+  auction_grafana_data:
+
+networks:
+  auction_net:
+    driver: bridge

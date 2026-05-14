@@ -11,7 +11,7 @@ import {
 } from "./bid.redis-keys";
 import { emitNewBid } from "./bid.events";
 import { createOutbidNotification } from "../notifications/notification.service";
-
+import { bidsCounter, bidDurationHistogram } from "../../metrics";
 
 
 export async function placeBidService(
@@ -20,6 +20,9 @@ export async function placeBidService(
   input: PlaceBidInput
 ) {
   const { amount } = input;
+
+  const endTimer = bidDurationHistogram.startTimer({ auction_id: auctionItemId });
+
 
   if (!amount || amount <= 0) {
     throw new Error("Bid amount must be greater than 0");
@@ -67,6 +70,10 @@ export async function placeBidService(
   const [success, code] = redisResult;
 
   if (success !== 1) {
+
+    bidsCounter.inc({ auction_id: auctionItemId, status: 'error' }); // ← thêm
+    endTimer(); 
+
     if (code === "AUCTION_NOT_ACTIVE") {
       throw new Error("Auction is not active");
     }
@@ -144,8 +151,13 @@ export async function placeBidService(
       });
     }
 
+    bidsCounter.inc({ auction_id: auctionItemId, status: 'success' }); // ← thêm
+    endTimer(); 
+
     return result;
   } catch (error) {
+    bidsCounter.inc({ auction_id: auctionItemId, status: 'error' }); // ← thêm
+    endTimer(); 
     await rollbackRedisBid(auctionItemId);
     throw error;
   }

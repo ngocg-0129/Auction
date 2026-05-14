@@ -6,7 +6,7 @@ import authRoutes from "./modules/auth/auth.routes";
 import auctionRoutes from "./modules/auctions/auction.routes";
 import bidRoutes from "./modules/bids/bid.routes";
 import notificationRoutes from "./modules/notifications/notification.routes";
-
+import { register } from "./metrics";
 
 
 const app = express();
@@ -19,6 +19,11 @@ app.get("/health", (req, res) => { // API Test server còn sống không
     status: "ok",
     message: "Real-time Auction API is running",
   });
+});
+
+app.get("/metrics", async (req, res) => {
+  res.set("Content-Type", register.contentType);
+  res.end(await register.metrics());
 });
 
 app.use("/api/auth", authRoutes);

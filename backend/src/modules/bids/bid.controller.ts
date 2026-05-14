@@ -14,7 +14,7 @@ export const placeBid = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = getUserIdFromRequest(req);
 
-  const result = await bidService.placeBidService(id, userId, req.body);
+  const result = await bidService.placeBidService(id as string, userId, req.body);
 
   res.status(201).json({
     message: "Bid placed successfully",
@@ -26,7 +26,7 @@ export const getBidsByAuction = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    const result = await bidService.getBidsByAuctionService(id);
+    const result = await bidService.getBidsByAuctionService(id as string);
 
     res.json({
       message: "Get bids successfully",

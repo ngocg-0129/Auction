@@ -28,7 +28,7 @@ export const markNotificationRead = asyncHandler(
     const userId = getUserIdFromRequest(req);
 
     const result = await notificationService.markNotificationReadService(
-      req.params.id,
+      req.params.id as string,
       userId
     );
 

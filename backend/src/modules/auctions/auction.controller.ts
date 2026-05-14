@@ -44,7 +44,7 @@ export const getAuctionDetail = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    const result = await auctionService.getAuctionDetailService(id);
+    const result = await auctionService.getAuctionDetailService(id as string);
 
     res.json({
       message: "Get auction detail successfully",
@@ -58,7 +58,7 @@ export const startAuction = asyncHandler(
     const { id } = req.params;
     const userId = getUserIdFromRequest(req);
 
-    const result = await auctionService.startAuctionService(id, userId);
+    const result = await auctionService.startAuctionService(id as string, userId);
 
     res.json({
       message: "Auction started successfully",
@@ -72,7 +72,7 @@ export const cancelAuction = asyncHandler(
     const { id } = req.params;
     const userId = getUserIdFromRequest(req);
 
-    const result = await auctionService.cancelAuctionService(id, userId);
+    const result = await auctionService.cancelAuctionService(id as string, userId);
 
     res.json({
       message: "Auction cancelled successfully",
@@ -85,7 +85,7 @@ export const closeAuction = asyncHandler( // test đóng thủ công
   async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    const result = await auctionService.closeAuctionService(id);
+    const result = await auctionService.closeAuctionService(id as string);
 
     res.json({
       message: "Auction closed successfully",
