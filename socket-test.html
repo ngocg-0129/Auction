@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Auction Socket Test</title>
+  </head>
+  <body>
+    <h1>Auction Socket Test</h1>
+
+    <div>
+      <label>Auction ID:</label>
+      <input id="auctionId" style="width: 400px" />
+      <button onclick="joinAuction()">Join Auction</button>
+      <button onclick="leaveAuction()">Leave Auction</button>
+    </div>
+
+    <hr />
+
+    <h2>Events</h2>
+    <pre id="log"></pre>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+      const socket = io("http://localhost:3000");
+
+      const logEl = document.getElementById("log");
+
+      function log(message, data) {
+        const time = new Date().toLocaleTimeString();
+        logEl.textContent += `[${time}] ${message}\n`;
+
+        if (data) {
+          logEl.textContent += JSON.stringify(data, null, 2) + "\n";
+        }
+
+        logEl.textContent += "\n";
+      }
+
+      socket.on("connect", () => {
+        log("Connected to socket server", {
+          socketId: socket.id,
+        });
+      });
+
+      socket.on("disconnect", () => {
+        log("Disconnected from socket server");
+      });
+
+      socket.on("auction:joined", (data) => {
+        log("Joined auction room", data);
+      });
+
+      socket.on("auction:left", (data) => {
+        log("Left auction room", data);
+      });
+
+      socket.on("bid:new", (data) => {
+        log("New bid received", data);
+      });
+
+      function joinAuction() {
+        const auctionId = document.getElementById("auctionId").value;
+        socket.emit("auction:join", auctionId);
+      }
+
+      function leaveAuction() {
+        const auctionId = document.getElementById("auctionId").value;
+        socket.emit("auction:leave", auctionId);
+      }
+    </script>
+  </body>
+</html>

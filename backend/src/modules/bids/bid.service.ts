@@ -9,6 +9,10 @@ import {
   auctionHighestBidderKey,
   auctionStatusKey,
 } from "./bid.redis-keys";
+import { emitNewBid } from "./bid.events";
+import { createOutbidNotification } from "../notifications/notification.service";
+
+
 
 export async function placeBidService(
   auctionItemId: string,
@@ -45,6 +49,9 @@ export async function placeBidService(
     throw new Error("You cannot bid on your own auction");
   }
 
+  const previousWinnerId = auction.currentWinnerId;
+  const auctionTitle = auction.title;
+
   await ensureAuctionInRedis(auctionItemId, Number(auction.currentPrice));
 
   const redisResult = (await redis.eval(
@@ -77,47 +84,65 @@ export async function placeBidService(
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const bid = await tx.bid.create({
+    const bid = await tx.bid.create({
         data: {
-          auctionItemId,
-          userId,
-          amount,
+        auctionItemId,
+        userId,
+        amount,
         },
         include: {
-          user: {
+        user: {
             select: {
-              id: true,
-              email: true,
-              fullName: true,
+            id: true,
+            email: true,
+            fullName: true,
             },
-          },
         },
-      });
+        },
+    });
 
-      const updatedAuction = await tx.auctionItem.update({
+    const updatedAuction = await tx.auctionItem.update({
         where: {
-          id: auctionItemId,
+        id: auctionItemId,
         },
         data: {
-          currentPrice: amount,
-          currentWinnerId: userId,
+        currentPrice: amount,
+        currentWinnerId: userId,
         },
         include: {
-          currentWinner: {
+        currentWinner: {
             select: {
-              id: true,
-              email: true,
-              fullName: true,
+            id: true,
+            email: true,
+            fullName: true,
             },
-          },
         },
-      });
+        },
+    });
 
-      return {
+    return {
         bid,
         auction: updatedAuction,
-      };
+    };
     });
+
+    emitNewBid({
+    auctionItemId,
+    amount,
+    bidderId: userId,
+    bidderEmail: result.bid.user.email,
+    bidderName: result.bid.user.fullName,
+    createdAt: result.bid.createdAt,
+    });
+    
+    if (previousWinnerId && previousWinnerId !== userId) {
+      await createOutbidNotification({
+        userId: previousWinnerId,
+        auctionItemId,
+        auctionTitle,
+        newAmount: amount,
+      });
+    }
 
     return result;
   } catch (error) {

@@ -5,6 +5,9 @@ import { notFoundMiddleware } from "./middlewares/not-found.middleware";
 import authRoutes from "./modules/auth/auth.routes";
 import auctionRoutes from "./modules/auctions/auction.routes";
 import bidRoutes from "./modules/bids/bid.routes";
+import notificationRoutes from "./modules/notifications/notification.routes";
+
+
 
 const app = express();
 
@@ -21,6 +24,8 @@ app.get("/health", (req, res) => { // API Test server còn sống không
 app.use("/api/auth", authRoutes);
 app.use("/api/auctions", auctionRoutes);
 app.use("/api", bidRoutes);
+app.use("/api/notifications", notificationRoutes);
+
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

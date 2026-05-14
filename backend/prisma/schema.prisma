@@ -14,6 +14,12 @@ enum AuctionStatus {
   CANCELLED
 }
 
+enum NotificationType {
+  OUTBID
+  AUCTION_WON
+  AUCTION_ENDED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -25,6 +31,7 @@ model User {
   auctionsCreated AuctionItem[] @relation("AuctionCreator")
   winningAuctions AuctionItem[] @relation("AuctionWinner")
   bids            Bid[]
+  notifications Notification[]
 }
 
 model AuctionItem {
@@ -45,6 +52,7 @@ model AuctionItem {
 
   currentWinner User? @relation("AuctionWinner", fields: [currentWinnerId], references: [id])
   bids          Bid[]
+  notifications Notification[]
 }
 
 model Bid {
@@ -60,4 +68,22 @@ model Bid {
 
   @@index([auctionItemId])
   @@index([userId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  auctionItemId String?
+  auctionItem   AuctionItem? @relation(fields: [auctionItemId], references: [id])
+
+  @@index([userId])
+  @@index([auctionItemId])
 }

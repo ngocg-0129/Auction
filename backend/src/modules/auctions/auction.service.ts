@@ -12,6 +12,11 @@ import {
   auctionHighestBidderKey,
   auctionStatusKey,
 } from "../bids/bid.redis-keys";
+import { prisma } from "../../config/db";
+import { emitAuctionEnded } from "./auction.events";
+import { scheduleCloseAuctionJob } from "../../jobs/auction.queue";
+import { createAuctionWonNotification } from "../notifications/notification.service";
+
 
 function parseAuctionStatus(status?: string): AuctionStatus | undefined {
   if (!status) return undefined;
@@ -119,6 +124,11 @@ export async function startAuctionService(id: string, userId: string) {
   await redis.set(auctionHighestBidderKey(id), auction.currentWinnerId || "");
   await redis.set(auctionStatusKey(id), AuctionStatus.ACTIVE);
 
+  await scheduleCloseAuctionJob({
+    auctionItemId: id,
+    endsAt: auction.endsAt,
+  });
+
   return updatedAuction;
 }
 
@@ -144,6 +154,70 @@ export async function cancelAuctionService(id: string, userId: string) {
   const updatedAuction = await updateAuctionStatus(id, AuctionStatus.CANCELLED);
 
   await redis.set(auctionStatusKey(id), AuctionStatus.CANCELLED);
+
+  return updatedAuction;
+}
+
+
+export async function closeAuctionService(id: string) {
+  const auction = await prisma.auctionItem.findUnique({
+    where: {
+      id,
+    },
+  });
+
+  if (!auction) {
+    throw new Error("Auction not found");
+  }
+
+  if (auction.status === AuctionStatus.ENDED) {
+    return auction;
+  }
+
+  if (auction.status === AuctionStatus.CANCELLED) {
+    return auction;
+  }
+
+  const redisHighestBid = await redis.get(auctionHighestBidKey(id));
+  const redisHighestBidder = await redis.get(auctionHighestBidderKey(id));
+
+  const winningBid = redisHighestBid
+    ? Number(redisHighestBid)
+    : Number(auction.currentPrice);
+
+  const winnerId =
+    redisHighestBidder && redisHighestBidder.length > 0
+      ? redisHighestBidder
+      : auction.currentWinnerId;
+
+  const updatedAuction = await prisma.auctionItem.update({
+    where: {
+      id,
+    },
+    data: {
+      status: AuctionStatus.ENDED,
+      currentPrice: winningBid,
+      currentWinnerId: winnerId,
+    },
+  });
+
+  await redis.set(auctionStatusKey(id), AuctionStatus.ENDED);
+
+  emitAuctionEnded({
+    auctionItemId: id,
+    winningBid,
+    winnerId,
+  });
+
+
+  if (winnerId) {
+    await createAuctionWonNotification({
+      userId: winnerId,
+      auctionItemId: id,
+      auctionTitle: auction.title,
+      winningBid,
+    });
+  }
 
   return updatedAuction;
 }

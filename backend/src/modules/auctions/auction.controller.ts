@@ -80,3 +80,16 @@ export const cancelAuction = asyncHandler(
     });
   }
 );
+
+export const closeAuction = asyncHandler( // test đóng thủ công
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const result = await auctionService.closeAuctionService(id);
+
+    res.json({
+      message: "Auction closed successfully",
+      data: result,
+    });
+  }
+);
