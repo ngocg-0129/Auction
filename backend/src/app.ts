@@ -7,11 +7,17 @@ import auctionRoutes from "./modules/auctions/auction.routes";
 import bidRoutes from "./modules/bids/bid.routes";
 import notificationRoutes from "./modules/notifications/notification.routes";
 import { register } from "./metrics";
-
+import { env } from "./config/env";
 
 const app = express();
 
-app.use(cors()); // cho phép FE gọi API
+app.use(
+  cors({
+    origin: env.corsOrigins,
+    credentials: true,
+  })
+);
+ // cho phép FE gọi API
 app.use(express.json()); // cho phép đọc JSON BODY
 
 app.get("/health", (req, res) => { // API Test server còn sống không

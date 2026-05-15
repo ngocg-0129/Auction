@@ -2,12 +2,13 @@ import { prisma } from "../../config/db";
 import { comparePassword, hashPassword } from "../../utils/password";
 import { signToken } from "../../utils/jwt";
 import { LoginInput, RegisterInput } from "./auth.types";
+import { AppError } from "../../utils/app-error";
 
 export async function register(input: RegisterInput) {
   const { email, password, fullName } = input;
 
   if (!email || !password) {
-    throw new Error("Email and password are required");
+    throw new AppError(400, "Email and password are required");
   }
 
   if (password.length < 6) {
@@ -19,7 +20,7 @@ export async function register(input: RegisterInput) {
   });
 
   if (existingUser) {
-    throw new Error("Email already exists");
+    throw new AppError(409, "Email already exists");
   }
 
   const passwordHash = await hashPassword(password);
@@ -53,7 +54,7 @@ export async function login(input: LoginInput) {
   const { email, password } = input;
 
   if (!email || !password) {
-    throw new Error("Email and password are required");
+    throw new AppError(400, "Email and password are required");
   }
 
   const user = await prisma.user.findUnique({
@@ -61,13 +62,13 @@ export async function login(input: LoginInput) {
   });
 
   if (!user) {
-    throw new Error("Invalid email or password");
+    throw new AppError(401, "Invalid email or password");
   }
 
   const isPasswordValid = await comparePassword(password, user.passwordHash);
 
   if (!isPasswordValid) {
-    throw new Error("Invalid email or password");
+    throw new AppError(401,"Invalid email or password");
   }
 
   const token = signToken({

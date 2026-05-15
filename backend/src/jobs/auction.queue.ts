@@ -1,11 +1,15 @@
 import { Queue } from "bullmq";
 import { env } from "../config/env";
 
+const redisConnection = env.redisUrl
+  ? { url: env.redisUrl }
+  : {
+      host: env.redisHost,
+      port: env.redisPort,
+    };
+
 export const auctionQueue = new Queue("auction-queue", {
-  connection: {
-    host: env.redisHost,
-    port: env.redisPort,
-  },
+  connection: redisConnection,
 });
 
 export async function scheduleCloseAuctionJob(data: {
@@ -25,7 +29,7 @@ export async function scheduleCloseAuctionJob(data: {
     },
     {
       delay,
-      jobId: `close-auction-${data.auctionItemId}`, // tránh tạo trùng job cho 1 auction
+      jobId: `close-auction-${data.auctionItemId}`,
       removeOnComplete: true,
       removeOnFail: false,
     }

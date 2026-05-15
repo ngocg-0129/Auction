@@ -1,9 +1,13 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../../utils/async-handler";
 import * as authService from "./auth.service";
+import { loginSchema, registerSchema } from "./auth.validation";
+
+
 
 export const register = asyncHandler(async (req: Request, res: Response) => {
-  const result = await authService.register(req.body);
+  const body = registerSchema.parse(req.body);
+  const result = await authService.register(body);
 
   res.status(201).json({
     message: "Register successfully",
@@ -12,7 +16,8 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
-  const result = await authService.login(req.body);
+  const body = loginSchema.parse(req.body);
+  const result = await authService.login(body);
 
   res.json({
     message: "Login successfully",

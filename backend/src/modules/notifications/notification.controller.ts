@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../../utils/async-handler";
 import * as notificationService from "./notification.service";
+import { notificationIdParamsSchema } from "./notification.validation";
+
 
 function getUserIdFromRequest(req: Request): string {
   if (!req.user) {
@@ -26,9 +28,10 @@ export const getMyNotifications = asyncHandler(
 export const markNotificationRead = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = getUserIdFromRequest(req);
+    const { id } = notificationIdParamsSchema.parse(req.params);
 
     const result = await notificationService.markNotificationReadService(
-      req.params.id as string,
+      id,
       userId
     );
 

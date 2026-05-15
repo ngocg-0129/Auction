@@ -16,7 +16,7 @@ import { prisma } from "../../config/db";
 import { emitAuctionEnded } from "./auction.events";
 import { scheduleCloseAuctionJob } from "../../jobs/auction.queue";
 import { createAuctionWonNotification } from "../notifications/notification.service";
-
+import { AppError } from "../../utils/app-error";
 
 function parseAuctionStatus(status?: string): AuctionStatus | undefined {
   if (!status) return undefined;
@@ -91,7 +91,7 @@ export async function getAuctionDetailService(id: string) {
   const auction = await findAuctionById(id);
 
   if (!auction) {
-    throw new Error("Auction not found");
+    throw new AppError(404, "Auction not found");
   }
 
   return auction;
@@ -101,7 +101,7 @@ export async function startAuctionService(id: string, userId: string) {
   const auction = await findAuctionById(id);
 
   if (!auction) {
-    throw new Error("Auction not found");
+    throw new AppError(404, "Auction not found");
   }
 
   if (auction.createdById !== userId) {
@@ -136,7 +136,7 @@ export async function cancelAuctionService(id: string, userId: string) {
   const auction = await findAuctionById(id);
 
   if (!auction) {
-    throw new Error("Auction not found");
+    throw new AppError(404, "Auction not found");
   }
 
   if (auction.createdById !== userId) {
@@ -159,7 +159,13 @@ export async function cancelAuctionService(id: string, userId: string) {
 }
 
 
-export async function closeAuctionService(id: string) {
+export async function closeAuctionService(
+  id: string,
+  options?: {
+    requestedByUserId?: string;
+    manual?: boolean;
+  }
+) {
   const auction = await prisma.auctionItem.findUnique({
     where: {
       id,
@@ -167,7 +173,17 @@ export async function closeAuctionService(id: string) {
   });
 
   if (!auction) {
-    throw new Error("Auction not found");
+    throw new AppError(404, "Auction not found");
+  }
+
+  if (options?.manual) {
+    if (auction.createdById !== options.requestedByUserId) {
+      throw new Error("You are not allowed to close this auction");
+    }
+
+    if (auction.endsAt > new Date()) {
+      throw new Error("Auction has not ended yet");
+    }
   }
 
   if (auction.status === AuctionStatus.ENDED) {
@@ -208,7 +224,6 @@ export async function closeAuctionService(id: string) {
     winningBid,
     winnerId,
   });
-
 
   if (winnerId) {
     await createAuctionWonNotification({

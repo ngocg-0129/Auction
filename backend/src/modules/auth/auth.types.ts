@@ -1,10 +1,6 @@
-export type RegisterInput = {
-  email: string;
-  password: string;
-  fullName?: string;
-};
+import { z } from "zod";
+import { loginSchema, registerSchema } from "./auth.validation";
 
-export type LoginInput = {
-  email: string;
-  password: string;
-};
+export type RegisterInput = z.infer<typeof registerSchema>;
+
+export type LoginInput = z.infer<typeof loginSchema>;

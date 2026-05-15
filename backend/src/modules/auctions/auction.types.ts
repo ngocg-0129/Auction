@@ -1,12 +1,9 @@
-export type CreateAuctionInput = { // dữ liệu client gửi lên khi tạo auction
-  title: string;
-  description?: string;
-  startingPrice: number;
-  startsAt: string;
-  endsAt: string;
-};
+import { z } from "zod";
+import {
+  auctionListQuerySchema,
+  createAuctionSchema,
+} from "./auction.validation";
 
-export type AuctionListQuery = { // query khi xem danh sách auction
-  status?: string;
-  search?: string;
-};
+export type CreateAuctionInput = z.infer<typeof createAuctionSchema>;
+
+export type AuctionListQuery = z.infer<typeof auctionListQuerySchema>;

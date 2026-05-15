@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../../utils/async-handler";
 import * as bidService from "./bid.service";
+import { auctionBidParamsSchema, placeBidSchema } from "./bid.validation";
+
 
 function getUserIdFromRequest(req: Request): string {
   if (!req.user) {
@@ -11,10 +13,11 @@ function getUserIdFromRequest(req: Request): string {
 }
 
 export const placeBid = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const { id } = auctionBidParamsSchema.parse(req.params);
   const userId = getUserIdFromRequest(req);
+  const body = placeBidSchema.parse(req.body);
 
-  const result = await bidService.placeBidService(id as string, userId, req.body);
+  const result = await bidService.placeBidService(id, userId, body);
 
   res.status(201).json({
     message: "Bid placed successfully",
@@ -24,9 +27,9 @@ export const placeBid = asyncHandler(async (req: Request, res: Response) => {
 
 export const getBidsByAuction = asyncHandler(
   async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const { id } = auctionBidParamsSchema.parse(req.params);
 
-    const result = await bidService.getBidsByAuctionService(id as string);
+    const result = await bidService.getBidsByAuctionService(id);
 
     res.json({
       message: "Get bids successfully",

@@ -3,19 +3,46 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: runner
     container_name: auction_backend
     ports:
       - "3000:3000"
     environment:
       DATABASE_URL: postgresql://auction_user:auction_password@postgres:5432/auction_db
       REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CLIENT_URL: ${CLIENT_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - auction_net
     restart: unless-stopped
+
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: builder
+    container_name: auction_migrate
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed"
+    environment:
+      DATABASE_URL: postgresql://auction_user:auction_password@postgres:5432/auction_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - auction_net
+    restart: "no"
 
   postgres:
     image: postgres:16
@@ -28,6 +55,11 @@ services:
       - "5434:5432"
     volumes:
       - auction_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auction_user -d auction_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - auction_net
 
@@ -36,6 +68,11 @@ services:
     container_name: auction_redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - auction_net
 
@@ -56,8 +93,8 @@ services:
     ports:
       - "3001:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     volumes:
       - auction_grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning

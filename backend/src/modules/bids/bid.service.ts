@@ -52,7 +52,6 @@ export async function placeBidService(
     throw new Error("You cannot bid on your own auction");
   }
 
-  const previousWinnerId = auction.currentWinnerId;
   const auctionTitle = auction.title;
 
   await ensureAuctionInRedis(auctionItemId, Number(auction.currentPrice));
@@ -65,9 +64,9 @@ export async function placeBidService(
     auctionStatusKey(auctionItemId),
     amount,
     userId
-  )) as [number, string];
+  )) as [number, string, string, string];
 
-  const [success, code] = redisResult;
+  const [success, code, _previousBidAmount, previousWinnerId] = redisResult;
 
   if (success !== 1) {
 
@@ -92,46 +91,63 @@ export async function placeBidService(
   try {
     const result = await prisma.$transaction(async (tx) => {
     const bid = await tx.bid.create({
-        data: {
+      data: {
         auctionItemId,
         userId,
         amount,
-        },
-        include: {
+      },
+      include: {
         user: {
-            select: {
+          select: {
             id: true,
             email: true,
             fullName: true,
-            },
+          },
         },
-        },
+      },
     });
 
-    const updatedAuction = await tx.auctionItem.update({
-        where: {
+    const updatedAuctionCount = await tx.auctionItem.updateMany({
+      where: {
         id: auctionItemId,
+        status: AuctionStatus.ACTIVE,
+        endsAt: {
+          gt: new Date(),
         },
-        data: {
+        currentPrice: {
+          lt: amount,
+        },
+      },
+      data: {
         currentPrice: amount,
         currentWinnerId: userId,
-        },
-        include: {
+      },
+    });
+
+    if (updatedAuctionCount.count === 0) {
+      throw new Error("Bid is no longer the highest bid");
+    }
+
+    const updatedAuction = await tx.auctionItem.findUnique({
+      where: {
+        id: auctionItemId,
+      },
+      include: {
         currentWinner: {
-            select: {
+          select: {
             id: true,
             email: true,
             fullName: true,
-            },
+          },
         },
-        },
+      },
     });
 
     return {
-        bid,
-        auction: updatedAuction,
+      bid,
+      auction: updatedAuction,
     };
-    });
+  });
 
     emitNewBid({
     auctionItemId,
@@ -158,7 +174,7 @@ export async function placeBidService(
   } catch (error) {
     bidsCounter.inc({ auction_id: auctionItemId, status: 'error' }); // ← thêm
     endTimer(); 
-    await rollbackRedisBid(auctionItemId);
+    await rollbackRedisBidIfStillCurrent(auctionItemId, amount, userId);
     throw error;
   }
 }
@@ -203,7 +219,18 @@ async function ensureAuctionInRedis(
   }
 }
 
-async function rollbackRedisBid(auctionItemId: string) {
+async function rollbackRedisBidIfStillCurrent(
+  auctionItemId: string,
+  failedAmount: number,
+  failedUserId: string
+) {
+  const redisAmount = await redis.get(auctionHighestBidKey(auctionItemId));
+  const redisBidder = await redis.get(auctionHighestBidderKey(auctionItemId));
+
+  if (Number(redisAmount) !== failedAmount || redisBidder !== failedUserId) {
+    return;
+  }
+
   const highestBid = await prisma.bid.findFirst({
     where: {
       auctionItemId,
@@ -224,7 +251,10 @@ async function rollbackRedisBid(auctionItemId: string) {
   }
 
   if (!highestBid) {
-    await redis.set(auctionHighestBidKey(auctionItemId), Number(auction.startingPrice));
+    await redis.set(
+      auctionHighestBidKey(auctionItemId),
+      Number(auction.startingPrice)
+    );
     await redis.set(auctionHighestBidderKey(auctionItemId), "");
     return;
   }

@@ -2,6 +2,13 @@ import { Worker } from "bullmq";
 import { env } from "../config/env";
 import { closeAuctionService } from "../modules/auctions/auction.service";
 
+const redisConnection = env.redisUrl
+  ? { url: env.redisUrl }
+  : {
+      host: env.redisHost,
+      port: env.redisPort,
+    };
+
 export function startAuctionWorker() {
   const worker = new Worker(
     "auction-queue",
@@ -17,10 +24,7 @@ export function startAuctionWorker() {
       }
     },
     {
-      connection: {
-        host: env.redisHost,
-        port: env.redisPort,
-      },
+      connection: redisConnection,
     }
   );
 
